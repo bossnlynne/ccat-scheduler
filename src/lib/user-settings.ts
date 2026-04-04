@@ -1,33 +1,106 @@
 import "server-only";
-import fs from "fs";
-import path from "path";
+import { google } from "googleapis";
 
 export interface UserSettings {
   sheetId?: string;
 }
 
-const SETTINGS_FILE = path.join(process.cwd(), "config", "user-settings.json");
+function getServiceAccountAuth() {
+  const credentials = JSON.parse(process.env.GOOGLE_SERVICE_ACCOUNT_KEY || "{}");
+  return new google.auth.GoogleAuth({
+    credentials,
+    scopes: ["https://www.googleapis.com/auth/spreadsheets"],
+  });
+}
 
-function readAll(): Record<string, UserSettings> {
+function getAdminSheetId(): string {
+  const id = process.env.ADMIN_SHEET_ID;
+  if (!id) throw new Error("ADMIN_SHEET_ID is not set");
+  return id;
+}
+
+// settings tab format: username | sheetId
+// Row 1 is header
+
+export async function getUserSettings(username: string): Promise<UserSettings> {
+  const auth = getServiceAccountAuth();
+  const sheets = google.sheets({ version: "v4", auth });
+
   try {
-    const data = fs.readFileSync(SETTINGS_FILE, "utf-8");
-    return JSON.parse(data);
+    const res = await sheets.spreadsheets.values.get({
+      spreadsheetId: getAdminSheetId(),
+      range: "settings!A:B",
+    });
+
+    const rows = res.data.values;
+    if (!rows || rows.length <= 1) return {};
+
+    const row = rows.slice(1).find(
+      (r) => (r[0] || "").toString().trim().toLowerCase() === username.toLowerCase()
+    );
+
+    if (!row) return {};
+    return { sheetId: row[1]?.toString().trim() || undefined };
   } catch {
+    // settings tab might not exist yet
     return {};
   }
 }
 
-function writeAll(settings: Record<string, UserSettings>) {
-  fs.writeFileSync(SETTINGS_FILE, JSON.stringify(settings, null, 2));
-}
+export async function setUserSettings(username: string, settings: UserSettings): Promise<void> {
+  const auth = getServiceAccountAuth();
+  const sheets = google.sheets({ version: "v4", auth });
+  const sheetId = getAdminSheetId();
 
-export function getUserSettings(username: string): UserSettings {
-  const all = readAll();
-  return all[username] || {};
-}
+  // Ensure settings tab exists
+  try {
+    await sheets.spreadsheets.values.get({
+      spreadsheetId: sheetId,
+      range: "settings!A1",
+    });
+  } catch {
+    // Create the tab
+    await sheets.spreadsheets.batchUpdate({
+      spreadsheetId: sheetId,
+      requestBody: {
+        requests: [{ addSheet: { properties: { title: "settings" } } }],
+      },
+    });
+    // Add header
+    await sheets.spreadsheets.values.update({
+      spreadsheetId: sheetId,
+      range: "settings!A1:B1",
+      valueInputOption: "RAW",
+      requestBody: { values: [["username", "sheetId"]] },
+    });
+  }
 
-export function setUserSettings(username: string, settings: UserSettings) {
-  const all = readAll();
-  all[username] = { ...all[username], ...settings };
-  writeAll(all);
+  // Check if user row exists
+  const res = await sheets.spreadsheets.values.get({
+    spreadsheetId: sheetId,
+    range: "settings!A:B",
+  });
+
+  const rows = res.data.values || [];
+  const rowIndex = rows.findIndex(
+    (r, i) => i > 0 && (r[0] || "").toString().trim().toLowerCase() === username.toLowerCase()
+  );
+
+  if (rowIndex >= 0) {
+    // Update existing row
+    await sheets.spreadsheets.values.update({
+      spreadsheetId: sheetId,
+      range: `settings!A${rowIndex + 1}:B${rowIndex + 1}`,
+      valueInputOption: "RAW",
+      requestBody: { values: [[username.toLowerCase(), settings.sheetId || ""]] },
+    });
+  } else {
+    // Append new row
+    await sheets.spreadsheets.values.append({
+      spreadsheetId: sheetId,
+      range: "settings!A:B",
+      valueInputOption: "RAW",
+      requestBody: { values: [[username.toLowerCase(), settings.sheetId || ""]] },
+    });
+  }
 }

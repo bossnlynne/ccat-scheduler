@@ -12,7 +12,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: "未登入" }, { status: 401 });
   }
 
-  const settings = getUserSettings(username);
+  const settings = await getUserSettings(username);
   return NextResponse.json({ settings });
 }
 
@@ -32,6 +32,6 @@ export async function PUT(request: NextRequest) {
     );
   }
 
-  setUserSettings(username, { sheetId: sheetId.trim() });
+  await setUserSettings(username, { sheetId: sheetId.trim() });
   return NextResponse.json({ success: true });
 }

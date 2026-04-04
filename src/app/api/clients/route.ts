@@ -13,7 +13,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: "未登入" }, { status: 401 });
   }
 
-  const settings = getUserSettings(username);
+  const settings = await getUserSettings(username);
   if (!settings.sheetId) {
     return NextResponse.json(
       { error: "尚未設定 Google Sheets ID，請先至設定頁填入" },
@@ -39,7 +39,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "未登入" }, { status: 401 });
   }
 
-  const settings = getUserSettings(username);
+  const settings = await getUserSettings(username);
   if (!settings.sheetId) {
     return NextResponse.json(
       { error: "尚未設定 Google Sheets ID" },

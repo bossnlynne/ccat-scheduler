@@ -14,7 +14,7 @@ export default async function Home({
   const username = await getSessionUsername();
   const tokens = await getGoogleTokens();
   const isGoogleConnected = !!tokens;
-  const settings = getUserSettings(username!);
+  const settings = await getUserSettings(username!);
   const hasSheetId = !!settings.sheetId;
   const params = await searchParams;
   const googleError = params.google_error;

@@ -13,10 +13,19 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  if (!(await isAllowedUser(username))) {
+  try {
+    if (!(await isAllowedUser(username))) {
+      return NextResponse.json(
+        { error: "此使用者名稱不在允許名單中" },
+        { status: 403 }
+      );
+    }
+  } catch (err) {
+    const message = err instanceof Error ? err.message : "未知錯誤";
+    console.error("Login whitelist check failed:", message);
     return NextResponse.json(
-      { error: "此使用者名稱不在允許名單中" },
-      { status: 403 }
+      { error: `無法驗證使用者：${message}` },
+      { status: 500 }
     );
   }
 
@@ -27,7 +36,6 @@ export async function POST(request: NextRequest) {
     secure: process.env.NODE_ENV === "production",
     sameSite: "lax",
     path: "/",
-    // No maxAge or expires — session cookie, cleared on browser close
   });
 
   return response;
