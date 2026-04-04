@@ -1,0 +1,14 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npx create-next-app@latest . --typescript --tailwind --eslint --app --src-dir --import-alias \"@/*\" --use-npm --no-turbopack)",
+      "Bash(npm --version)",
+      "Bash(export PATH=\"/usr/local/bin:/opt/homebrew/bin:$HOME/.nvm/versions/node/*/bin:$PATH\")",
+      "Read(//usr/local/bin/**)",
+      "Bash(command -v fnm)",
+      "Read(//Users/lynne_chang/Library/**)",
+      "Read(//usr/local/**)",
+      "Bash(source ~/.zshrc)"
+    ]
+  }
+}
