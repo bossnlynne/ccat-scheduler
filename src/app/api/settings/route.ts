@@ -1,13 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
-import { COOKIE_NAME } from "@/lib/auth";
 import { getUserSettings, setUserSettings } from "@/lib/user-settings";
+import { ensureSheetHeaders } from "@/lib/google-sheets";
+import { getSessionUsername } from "@/lib/auth-server";
 
-function getUsername(request: NextRequest): string | null {
-  return request.cookies.get(COOKIE_NAME)?.value ?? null;
-}
-
-export async function GET(request: NextRequest) {
-  const username = getUsername(request);
+export async function GET() {
+  const username = await getSessionUsername();
   if (!username) {
     return NextResponse.json({ error: "未登入" }, { status: 401 });
   }
@@ -17,21 +14,30 @@ export async function GET(request: NextRequest) {
 }
 
 export async function PUT(request: NextRequest) {
-  const username = getUsername(request);
+  const username = await getSessionUsername();
   if (!username) {
     return NextResponse.json({ error: "未登入" }, { status: 401 });
   }
 
   const body = await request.json();
-  const { sheetId } = body;
+  const { sheetId, calendarId } = body;
 
-  if (!sheetId || typeof sheetId !== "string") {
-    return NextResponse.json(
-      { error: "請提供有效的 Google Sheets ID" },
-      { status: 400 }
-    );
+  if (sheetId !== undefined) {
+    if (!sheetId || typeof sheetId !== "string") {
+      return NextResponse.json(
+        { error: "請提供有效的 Google Sheets ID" },
+        { status: 400 }
+      );
+    }
+    const trimmedId = sheetId.trim();
+    await setUserSettings(username, { sheetId: trimmedId });
+    await ensureSheetHeaders(trimmedId);
   }
 
-  await setUserSettings(username, { sheetId: sheetId.trim() });
+  if (calendarId !== undefined) {
+    const trimmedCalId = typeof calendarId === "string" ? calendarId.trim() : "";
+    await setUserSettings(username, { calendarId: trimmedCalId || undefined });
+  }
+
   return NextResponse.json({ success: true });
 }

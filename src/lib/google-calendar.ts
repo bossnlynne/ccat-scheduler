@@ -1,6 +1,6 @@
 import "server-only";
 import { google } from "googleapis";
-import { getAuthenticatedClient } from "./google-auth";
+import { getServiceAccountCalendarAuth } from "./google-auth";
 
 export interface CalendarEventInput {
   title: string;
@@ -20,17 +20,16 @@ function addOneHour(time: string): string {
 }
 
 export async function createGoogleCalendarEvent(
-  event: CalendarEventInput
+  event: CalendarEventInput,
+  calendarId: string
 ): Promise<string> {
-  const auth = await getAuthenticatedClient();
-  if (!auth) throw new Error("未連結 Google 帳號");
-
+  const auth = await getServiceAccountCalendarAuth();
   const calendar = google.calendar({ version: "v3", auth });
 
   const endTime = addOneHour(event.startTime);
 
   const res = await calendar.events.insert({
-    calendarId: "primary",
+    calendarId,
     requestBody: {
       summary: event.title,
       location: event.location,
@@ -50,11 +49,12 @@ export async function createGoogleCalendarEvent(
 }
 
 export async function createGoogleCalendarEvents(
-  events: CalendarEventInput[]
+  events: CalendarEventInput[],
+  calendarId: string
 ): Promise<string[]> {
   const ids: string[] = [];
   for (const event of events) {
-    const id = await createGoogleCalendarEvent(event);
+    const id = await createGoogleCalendarEvent(event, calendarId);
     ids.push(id);
   }
   return ids;

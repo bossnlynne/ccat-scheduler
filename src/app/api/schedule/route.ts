@@ -1,5 +1,4 @@
 import { NextRequest, NextResponse } from "next/server";
-import { COOKIE_NAME } from "@/lib/auth";
 import { getUserSettings } from "@/lib/user-settings";
 import { getClients } from "@/lib/google-sheets";
 import {
@@ -7,6 +6,7 @@ import {
   CalendarEventInput,
 } from "@/lib/google-calendar";
 import { createICloudCalendarEvents, ICloudEventInput } from "@/lib/icloud-calendar";
+import { getSessionUsername } from "@/lib/auth-server";
 
 function getDateRange(startDate: string, endDate: string): string[] {
   const dates: string[] = [];
@@ -24,7 +24,7 @@ function getDateRange(startDate: string, endDate: string): string[] {
 }
 
 export async function POST(request: NextRequest) {
-  const username = request.cookies.get(COOKIE_NAME)?.value;
+  const username = await getSessionUsername();
   if (!username) {
     return NextResponse.json({ error: "未登入" }, { status: 401 });
   }
@@ -47,7 +47,6 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  // Look up client
   const clients = await getClients(settings.sheetId);
   const client = clients.find((c) => c.id === clientId);
   if (!client) {
@@ -62,7 +61,7 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  const title = `【照護】${client.ownerName}-${client.catName}（${username}）`;
+  const title = `［照護］${client.ownerName}-${client.catName}（${username}）`;
   const description = `飼主：${client.ownerName}\n貓咪：${client.catName}\n地址：${client.address}`;
 
   const eventInputs = dates.map((date) => ({
@@ -75,25 +74,22 @@ export async function POST(request: NextRequest) {
 
   const errors: string[] = [];
 
-  // Write to Google Calendar
   let googleCount = 0;
-  try {
-    const googleIds = await createGoogleCalendarEvents(
-      eventInputs as CalendarEventInput[]
-    );
-    googleCount = googleIds.length;
-  } catch (err) {
-    const msg = err instanceof Error ? err.message : "未知錯誤";
-    if (msg === "GOOGLE_TOKEN_EXPIRED") {
-      return NextResponse.json(
-        { error: "Google 授權已過期，請重新連結 Google 帳號", code: "TOKEN_EXPIRED" },
-        { status: 401 }
+  if (settings.calendarId) {
+    try {
+      const googleIds = await createGoogleCalendarEvents(
+        eventInputs as CalendarEventInput[],
+        settings.calendarId
       );
+      googleCount = googleIds.length;
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "未知錯誤";
+      errors.push(`Google 行事曆：${msg}`);
     }
-    errors.push(`Google 行事曆：${msg}`);
+  } else {
+    errors.push("Google 行事曆：尚未設定 Calendar ID");
   }
 
-  // Write to iCloud Calendar
   let icloudCount = 0;
   try {
     const icloudIds = await createICloudCalendarEvents(
@@ -114,7 +110,7 @@ export async function POST(request: NextRequest) {
 
   return NextResponse.json({
     success: true,
-    createdCount: googleCount,
+    createdCount: googleCount + icloudCount,
     google: googleCount,
     icloud: icloudCount,
     warnings: errors.length > 0 ? errors : undefined,

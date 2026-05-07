@@ -65,81 +65,84 @@ export default function ClientModal({ client, onClose }: Props) {
     }
   }
 
+  const inputClass =
+    "mt-1 block w-full border border-[#e0ddd8] bg-white px-3 py-2 text-sm text-[#1a1a1a] placeholder-[#b0aaa5] focus:border-[#1a1a1a] focus:outline-none";
+
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-      <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-xl">
-        <h3 className="mb-4 text-lg font-semibold text-gray-900">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 p-5">
+      <div className="w-full max-w-md bg-white p-6 shadow-lg">
+        <h3 className="mb-5 text-base font-medium text-[#1a1a1a]">
           {isEditing ? "編輯客戶" : "新增客戶"}
         </h3>
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
-            <label className="block text-sm font-medium text-gray-700">
-              飼主姓名 <span className="text-red-500">*</span>
+            <label className="block text-xs font-medium text-[#8a8580]">
+              飼主姓名
             </label>
             <input
               type="text"
               value={ownerName}
               onChange={(e) => setOwnerName(e.target.value)}
               autoFocus
-              className="mt-1 block w-full rounded-lg border border-gray-300 px-3 py-2 text-gray-900 placeholder-gray-400 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+              className={inputClass}
               placeholder="例如：陳小明"
             />
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700">
-              貓咪名字 <span className="text-red-500">*</span>
+            <label className="block text-xs font-medium text-[#8a8580]">
+              貓咪名字
             </label>
             <input
               type="text"
               value={catName}
               onChange={(e) => setCatName(e.target.value)}
-              className="mt-1 block w-full rounded-lg border border-gray-300 px-3 py-2 text-gray-900 placeholder-gray-400 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
-              placeholder="多隻以 / 分隔，例如：小花/小虎"
+              className={inputClass}
+              placeholder="多隻以 / 分隔"
             />
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700">
-              照顧地址 <span className="text-red-500">*</span>
+            <label className="block text-xs font-medium text-[#8a8580]">
+              照顧地址
             </label>
             <input
               type="text"
               value={address}
               onChange={(e) => setAddress(e.target.value)}
-              className="mt-1 block w-full rounded-lg border border-gray-300 px-3 py-2 text-gray-900 placeholder-gray-400 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
-              placeholder="例如：台北市大安區復興南路一段100號"
+              className={inputClass}
+              placeholder="完整地址"
             />
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700">
+            <label className="block text-xs font-medium text-[#8a8580]">
               備註
             </label>
             <textarea
               value={note}
               onChange={(e) => setNote(e.target.value)}
               rows={2}
-              className="mt-1 block w-full rounded-lg border border-gray-300 px-3 py-2 text-gray-900 placeholder-gray-400 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+              className={inputClass}
               placeholder="選填"
             />
           </div>
 
-          {error && <p className="text-sm text-red-600">{error}</p>}
+          {error && <p className="text-sm text-red-500">{error}</p>}
 
-          <div className="flex justify-end gap-3 pt-2">
+          <div className="flex justify-end gap-3 pt-3">
             <button
               type="button"
               onClick={() => onClose(false)}
-              className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-100"
+              className="border border-[#e0ddd8] px-4 py-2 text-xs text-[#8a8580] transition-colors hover:bg-[#f5f3ef]"
             >
               取消
             </button>
             <button
               type="submit"
               disabled={saving}
-              className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-blue-700 disabled:opacity-50"
+              className="border border-[#1a1a1a] bg-[#1a1a1a] px-5 py-2 text-xs font-medium text-white transition-colors hover:bg-[#333] disabled:opacity-50"
             >
               {saving ? "儲存中..." : "儲存"}
             </button>

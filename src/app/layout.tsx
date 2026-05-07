@@ -4,6 +4,7 @@ import "./globals.css";
 
 const notoSansTC = Noto_Sans_TC({
   subsets: ["latin"],
+  weight: ["300", "400", "500", "700"],
   variable: "--font-noto-sans-tc",
 });
 
@@ -19,7 +20,10 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="zh-TW" className={`${notoSansTC.variable} h-full antialiased`}>
-      <body className="min-h-full flex flex-col font-sans" style={{ fontFamily: "var(--font-noto-sans-tc), sans-serif" }}>
+      <body
+        className="min-h-full flex flex-col"
+        style={{ fontFamily: "var(--font-noto-sans-tc), sans-serif" }}
+      >
         {children}
       </body>
     </html>

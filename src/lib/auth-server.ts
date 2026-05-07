@@ -11,7 +11,9 @@ function getServiceAccountAuth() {
   });
 }
 
-export async function getAllowedUsers(): Promise<string[]> {
+type UserRecord = { username: string; pin: string };
+
+async function getUserRecords(): Promise<UserRecord[]> {
   const sheetId = process.env.ADMIN_SHEET_ID;
   if (!sheetId) throw new Error("ADMIN_SHEET_ID is not set");
 
@@ -20,22 +22,26 @@ export async function getAllowedUsers(): Promise<string[]> {
 
   const res = await sheets.spreadsheets.values.get({
     spreadsheetId: sheetId,
-    range: "users!A:A",
+    range: "users!A:B",
   });
 
   const rows = res.data.values;
   if (!rows || rows.length <= 1) return [];
 
-  // Skip header row, normalize to lowercase
   return rows
     .slice(1)
-    .map((row) => (row[0] || "").toString().trim().toLowerCase())
-    .filter(Boolean);
+    .map((row) => ({
+      username: (row[0] || "").toString().trim().toLowerCase(),
+      pin: (row[1] || "").toString().trim(),
+    }))
+    .filter((r) => r.username);
 }
 
-export async function isAllowedUser(username: string): Promise<boolean> {
-  const allowed = await getAllowedUsers();
-  return allowed.includes(username.toLowerCase());
+export async function isAllowedUser(username: string, pin: string): Promise<boolean> {
+  const records = await getUserRecords();
+  const record = records.find((r) => r.username === username.toLowerCase());
+  if (!record) return false;
+  return record.pin === pin;
 }
 
 export async function getSessionUsername(): Promise<string | null> {

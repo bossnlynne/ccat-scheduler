@@ -19,6 +19,28 @@ export interface Client {
 
 const HEADER_ROW = ["id", "飼主姓名", "貓咪名字", "照顧地址", "備註"];
 
+export async function ensureSheetHeaders(sheetId: string): Promise<void> {
+  const auth = getServiceAccountAuth();
+  const sheets = google.sheets({ version: "v4", auth });
+
+  try {
+    const existing = await sheets.spreadsheets.values.get({
+      spreadsheetId: sheetId,
+      range: "工作表1!A1:E1",
+    });
+    if (!existing.data.values || existing.data.values.length === 0) {
+      await sheets.spreadsheets.values.update({
+        spreadsheetId: sheetId,
+        range: "工作表1!A1:E1",
+        valueInputOption: "RAW",
+        requestBody: { values: [HEADER_ROW] },
+      });
+    }
+  } catch {
+    // Sheet tab may not exist or no access — will surface later when user tries to use it
+  }
+}
+
 export async function getClients(sheetId: string): Promise<Client[]> {
   const auth = getServiceAccountAuth();
   const sheets = google.sheets({ version: "v4", auth });

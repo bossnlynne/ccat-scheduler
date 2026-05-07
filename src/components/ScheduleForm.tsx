@@ -10,14 +10,12 @@ interface Client {
   note: string;
 }
 
-// Generate time slots from 06:00 to 22:00 in 30-min increments
+// Generate time slots from 06:00 to 23:30 in 30-min increments
 function generateTimeSlots(): string[] {
   const slots: string[] = [];
-  for (let h = 6; h <= 22; h++) {
+  for (let h = 6; h <= 23; h++) {
     slots.push(`${String(h).padStart(2, "0")}:00`);
-    if (h < 22) {
-      slots.push(`${String(h).padStart(2, "0")}:30`);
-    }
+    slots.push(`${String(h).padStart(2, "0")}:30`);
   }
   return slots;
 }
@@ -26,8 +24,9 @@ const TIME_SLOTS = generateTimeSlots();
 
 function formatEndTime(startTime: string): string {
   const [h, m] = startTime.split(":").map(Number);
-  const endH = h + 1;
-  return `${String(endH).padStart(2, "0")}:${String(m).padStart(2, "0")}`;
+  const endH = (h + 1) % 24;
+  const nextDay = h + 1 >= 24 ? "+1" : "";
+  return `${String(endH).padStart(2, "0")}:${String(m).padStart(2, "0")}${nextDay}`;
 }
 
 function getTodayString(): string {
@@ -42,7 +41,6 @@ function formatDateDisplay(dateStr: string): string {
   return `${y}/${m}/${d}（${weekdays[date.getDay()]}）`;
 }
 
-/** Return all dates from startDate to endDate inclusive as YYYY-MM-DD strings */
 function getDateRange(startDate: string, endDate: string): string[] {
   const dates: string[] = [];
   const start = new Date(startDate + "T00:00:00");
@@ -59,10 +57,10 @@ function getDateRange(startDate: string, endDate: string): string[] {
 }
 
 interface Props {
-  username: string;
+  displayName: string;
 }
 
-export default function ScheduleForm({ username }: Props) {
+export default function ScheduleForm({ displayName }: Props) {
   const [clients, setClients] = useState<Client[]>([]);
   const [loadingClients, setLoadingClients] = useState(true);
   const [selectedClientId, setSelectedClientId] = useState("");
@@ -80,11 +78,9 @@ export default function ScheduleForm({ username }: Props) {
     try {
       const res = await fetch("/api/clients");
       const data = await res.json();
-      if (res.ok) {
-        setClients(data.clients);
-      }
+      if (res.ok) setClients(data.clients);
     } catch {
-      // Silently fail — client list also shows errors
+      // ignore
     } finally {
       setLoadingClients(false);
     }
@@ -94,24 +90,17 @@ export default function ScheduleForm({ username }: Props) {
     fetchClients();
   }, [fetchClients]);
 
-  // Ensure endDate >= startDate
   useEffect(() => {
-    if (endDate < startDate) {
-      setEndDate(startDate);
-    }
+    if (endDate < startDate) setEndDate(startDate);
   }, [startDate, endDate]);
 
   const selectedClient = clients.find((c) => c.id === selectedClientId);
 
   const eventTitle = selectedClient
-    ? `【照護】${selectedClient.ownerName}-${selectedClient.catName}（${username}）`
+    ? `［照護］${selectedClient.ownerName}-${selectedClient.catName}（${displayName}）`
     : "";
 
-  const dates = useMemo(
-    () => getDateRange(startDate, endDate),
-    [startDate, endDate]
-  );
-
+  const dates = useMemo(() => getDateRange(startDate, endDate), [startDate, endDate]);
   const eventCount = dates.length;
 
   async function handleSubmit() {
@@ -134,16 +123,6 @@ export default function ScheduleForm({ username }: Props) {
 
       const data = await res.json();
       if (!res.ok) {
-        if (data.code === "TOKEN_EXPIRED") {
-          setResult({
-            type: "error",
-            message: "Google 授權已過期，請重新連結帳號",
-          });
-          setTimeout(() => {
-            window.location.href = "/api/auth/google";
-          }, 2000);
-          return;
-        }
         setResult({ type: "error", message: data.error || "排程建立失敗" });
         return;
       }
@@ -162,71 +141,58 @@ export default function ScheduleForm({ username }: Props) {
     }
   }
 
-  return (
-    <div className="flex flex-col gap-4">
-      <h2 className="text-lg font-semibold text-gray-900">建立排程</h2>
+  const inputClass =
+    "mt-1 block w-full border border-[#e0ddd8] bg-white px-3 py-2.5 text-sm text-[#1a1a1a] focus:border-[#1a1a1a] focus:outline-none";
 
-      <div className="rounded-lg border border-gray-200 bg-white p-4 space-y-4">
+  return (
+    <div className="flex flex-col gap-5">
+      <h2 className="text-base font-medium text-[#1a1a1a]">建立排程</h2>
+
+      <div className="border border-[#e0ddd8] bg-white p-5 space-y-5 overflow-hidden">
         {/* 客戶選擇 */}
         <div>
-          <label className="block text-sm font-medium text-gray-700">
-            選擇客戶
-          </label>
+          <label className="block text-xs font-medium text-[#8a8580]">選擇客戶</label>
           <select
             value={selectedClientId}
             onChange={(e) => setSelectedClientId(e.target.value)}
             disabled={loadingClients}
-            className="mt-1 block w-full rounded-lg border border-gray-300 bg-white px-3 py-2.5 text-gray-900 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+            className={inputClass}
           >
-            <option value="">
-              {loadingClients ? "載入中..." : "— 請選擇客戶 —"}
-            </option>
+            <option value="">{loadingClients ? "載入中..." : "-- 請選擇 --"}</option>
             {clients.map((c) => (
               <option key={c.id} value={c.id}>
-                {c.ownerName} — {c.catName}
+                {c.ownerName} / {c.catName}
               </option>
             ))}
           </select>
         </div>
 
         {/* 日期區間 */}
-        <div className="grid grid-cols-2 gap-3">
-          <div>
-            <label className="block text-sm font-medium text-gray-700">
-              開始日期
-            </label>
-            <input
-              type="date"
-              value={startDate}
-              onChange={(e) => setStartDate(e.target.value)}
-              min={getTodayString()}
-              className="mt-1 block w-full rounded-lg border border-gray-300 px-3 py-2.5 text-gray-900 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
-            />
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700">
-              結束日期
-            </label>
-            <input
-              type="date"
-              value={endDate}
-              onChange={(e) => setEndDate(e.target.value)}
-              min={startDate}
-              className="mt-1 block w-full rounded-lg border border-gray-300 px-3 py-2.5 text-gray-900 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
-            />
-          </div>
+        <div>
+          <label className="block text-xs font-medium text-[#8a8580]">開始日期</label>
+          <input
+            type="date"
+            value={startDate}
+            onChange={(e) => setStartDate(e.target.value)}
+            min={getTodayString()}
+            className={inputClass}
+          />
+        </div>
+        <div>
+          <label className="block text-xs font-medium text-[#8a8580]">結束日期</label>
+          <input
+            type="date"
+            value={endDate}
+            onChange={(e) => setEndDate(e.target.value)}
+            min={startDate}
+            className={inputClass}
+          />
         </div>
 
         {/* 時段選擇 */}
         <div>
-          <label className="block text-sm font-medium text-gray-700">
-            每日時段（1 小時）
-          </label>
-          <select
-            value={time}
-            onChange={(e) => setTime(e.target.value)}
-            className="mt-1 block w-full rounded-lg border border-gray-300 bg-white px-3 py-2.5 text-gray-900 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
-          >
+          <label className="block text-xs font-medium text-[#8a8580]">每日時段（1 小時）</label>
+          <select value={time} onChange={(e) => setTime(e.target.value)} className={inputClass}>
             {TIME_SLOTS.map((slot) => (
               <option key={slot} value={slot}>
                 {slot} ~ {formatEndTime(slot)}
@@ -238,47 +204,30 @@ export default function ScheduleForm({ username }: Props) {
 
       {/* 事件預覽 */}
       {selectedClient && startDate && endDate && time && (
-        <div className="rounded-lg border border-blue-200 bg-blue-50 p-4">
-          <h3 className="mb-2 text-sm font-semibold text-blue-800">
-            事件預覽
-            <span className="ml-2 rounded-full bg-blue-200 px-2 py-0.5 text-xs font-medium text-blue-800">
-              共 {eventCount} 筆
-            </span>
-          </h3>
-          <div className="space-y-1 text-sm text-blue-900">
-            <p>
-              <span className="text-blue-600">標題：</span>
-              {eventTitle}
-            </p>
-            <p>
-              <span className="text-blue-600">期間：</span>
+        <div className="border border-[#e0ddd8] bg-white p-5">
+          <p className="text-xs font-medium text-[#8a8580]">
+            預覽
+            <span className="ml-2 text-[#1a1a1a]">{eventCount} 筆</span>
+          </p>
+          <div className="mt-3 space-y-1.5 text-sm text-[#1a1a1a]">
+            <p>{eventTitle}</p>
+            <p className="text-[#8a8580]">
               {formatDateDisplay(startDate)}
-              {startDate !== endDate && (
-                <> ~ {formatDateDisplay(endDate)}</>
-              )}
-            </p>
-            <p>
-              <span className="text-blue-600">每日時間：</span>
+              {startDate !== endDate && <> ~ {formatDateDisplay(endDate)}</>}
+              {" "}
               {time} ~ {formatEndTime(time)}
             </p>
-            <p>
-              <span className="text-blue-600">地點：</span>
-              {selectedClient.address}
-            </p>
+            <p className="text-xs text-[#b0aaa5]">{selectedClient.address}</p>
           </div>
 
-          {/* 展開日期清單 */}
           {eventCount > 1 && eventCount <= 31 && (
-            <details className="mt-3">
-              <summary className="cursor-pointer text-xs text-blue-600 hover:underline">
+            <details className="mt-4">
+              <summary className="cursor-pointer text-xs text-[#8a8580] hover:text-[#1a1a1a]">
                 展開所有日期
               </summary>
               <div className="mt-2 flex flex-wrap gap-1.5">
                 {dates.map((d) => (
-                  <span
-                    key={d}
-                    className="rounded bg-blue-100 px-2 py-0.5 text-xs text-blue-800"
-                  >
+                  <span key={d} className="border border-[#e0ddd8] px-2 py-0.5 text-xs text-[#5a5550]">
                     {formatDateDisplay(d)}
                   </span>
                 ))}
@@ -291,19 +240,17 @@ export default function ScheduleForm({ username }: Props) {
       {/* 結果訊息 */}
       {result && (
         <div
-          className={`rounded-lg p-3 text-sm ${
+          className={`border px-4 py-3 text-sm ${
             result.type === "success"
-              ? "bg-green-50 text-green-700"
+              ? "border-green-200 bg-green-50/60 text-green-700"
               : result.type === "partial"
-              ? "bg-yellow-50 text-yellow-700"
-              : "bg-red-50 text-red-700"
+              ? "border-amber-200 bg-amber-50/60 text-amber-700"
+              : "border-red-200 bg-red-50/60 text-red-600"
           }`}
         >
           <p>{result.message}</p>
           {result.warnings?.map((w, i) => (
-            <p key={i} className="mt-1 text-xs opacity-80">
-              ⚠ {w}
-            </p>
+            <p key={i} className="mt-1 text-xs opacity-75">{w}</p>
           ))}
         </div>
       )}
@@ -312,11 +259,9 @@ export default function ScheduleForm({ username }: Props) {
       <button
         onClick={handleSubmit}
         disabled={!selectedClient || !startDate || !endDate || !time || submitting}
-        className="w-full rounded-lg bg-green-600 px-4 py-3 text-sm font-semibold text-white transition-colors hover:bg-green-700 disabled:cursor-not-allowed disabled:opacity-50"
+        className="w-full border border-[#1a1a1a] bg-[#1a1a1a] py-3 text-sm font-medium text-white transition-colors hover:bg-[#333] disabled:cursor-not-allowed disabled:opacity-30"
       >
-        {submitting
-          ? "建立中..."
-          : `送出排程（${eventCount} 筆）`}
+        {submitting ? "建立中..." : `送出排程（${eventCount} 筆）`}
       </button>
     </div>
   );

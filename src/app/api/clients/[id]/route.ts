@@ -1,17 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
-import { COOKIE_NAME } from "@/lib/auth";
 import { getUserSettings } from "@/lib/user-settings";
 import { updateClient, deleteClient } from "@/lib/google-sheets";
-
-function getUsername(request: NextRequest): string | null {
-  return request.cookies.get(COOKIE_NAME)?.value ?? null;
-}
+import { getSessionUsername } from "@/lib/auth-server";
 
 export async function PUT(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const username = getUsername(request);
+  const username = await getSessionUsername();
   if (!username) {
     return NextResponse.json({ error: "未登入" }, { status: 401 });
   }
@@ -60,7 +56,7 @@ export async function DELETE(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const username = getUsername(request);
+  const username = await getSessionUsername();
   if (!username) {
     return NextResponse.json({ error: "未登入" }, { status: 401 });
   }

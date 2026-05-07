@@ -1,14 +1,10 @@
-import { NextRequest, NextResponse } from "next/server";
-import { COOKIE_NAME } from "@/lib/auth";
+import { NextResponse } from "next/server";
 import { getUserSettings } from "@/lib/user-settings";
 import { getClients, addClient } from "@/lib/google-sheets";
+import { getSessionUsername } from "@/lib/auth-server";
 
-function getUsername(request: NextRequest): string | null {
-  return request.cookies.get(COOKIE_NAME)?.value ?? null;
-}
-
-export async function GET(request: NextRequest) {
-  const username = getUsername(request);
+export async function GET() {
+  const username = await getSessionUsername();
   if (!username) {
     return NextResponse.json({ error: "未登入" }, { status: 401 });
   }
@@ -33,8 +29,8 @@ export async function GET(request: NextRequest) {
   }
 }
 
-export async function POST(request: NextRequest) {
-  const username = getUsername(request);
+export async function POST(request: Request) {
+  const username = await getSessionUsername();
   if (!username) {
     return NextResponse.json({ error: "未登入" }, { status: 401 });
   }

@@ -83,20 +83,17 @@ export default function ClientList() {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center py-12">
-        <p className="text-gray-500">載入中...</p>
+      <div className="flex items-center justify-center py-16">
+        <p className="text-sm text-[#8a8580]">載入中...</p>
       </div>
     );
   }
 
   if (error) {
     return (
-      <div className="flex flex-col items-center gap-3 py-12">
-        <p className="text-sm text-red-600">{error}</p>
-        <button
-          onClick={fetchClients}
-          className="text-sm text-blue-600 hover:underline"
-        >
+      <div className="flex flex-col items-center gap-3 py-16">
+        <p className="text-sm text-red-500">{error}</p>
+        <button onClick={fetchClients} className="text-sm text-[#1a1a1a] underline underline-offset-4">
           重新載入
         </button>
       </div>
@@ -104,23 +101,23 @@ export default function ClientList() {
   }
 
   return (
-    <div className="flex flex-col gap-4">
+    <div className="flex flex-col gap-5">
       <div className="flex items-center justify-between">
-        <h2 className="text-lg font-semibold text-gray-900">客戶資料庫</h2>
+        <h2 className="text-base font-medium text-[#1a1a1a]">客戶資料</h2>
         <button
           onClick={handleAdd}
-          className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-blue-700"
+          className="border border-[#1a1a1a] px-4 py-1.5 text-xs font-medium text-[#1a1a1a] transition-colors hover:bg-[#1a1a1a] hover:text-white"
         >
-          + 新增客戶
+          + 新增
         </button>
       </div>
 
       {actionMessage && (
         <div
-          className={`rounded-lg px-3 py-2 text-sm ${
+          className={`border px-4 py-2 text-sm ${
             actionMessage.type === "success"
-              ? "bg-green-50 text-green-700"
-              : "bg-red-50 text-red-700"
+              ? "border-green-200 bg-green-50/60 text-green-700"
+              : "border-red-200 bg-red-50/60 text-red-600"
           }`}
         >
           {actionMessage.text}
@@ -128,43 +125,43 @@ export default function ClientList() {
       )}
 
       {clients.length === 0 ? (
-        <p className="py-8 text-center text-sm text-gray-500">
-          尚無客戶資料，請點擊「新增客戶」開始建立
+        <p className="py-12 text-center text-sm text-[#8a8580]">
+          尚無客戶資料
         </p>
       ) : (
         <div className="space-y-3">
           {clients.map((client) => (
             <div
               key={client.id}
-              className="rounded-lg border border-gray-200 bg-white p-4"
+              className="border border-[#e0ddd8] bg-white p-4"
             >
-              <div className="flex items-start justify-between gap-2">
+              <div className="flex items-start justify-between gap-3">
                 <div className="min-w-0 flex-1">
-                  <p className="font-medium text-gray-900">
+                  <p className="text-sm font-medium text-[#1a1a1a]">
                     {client.ownerName}
-                    <span className="ml-2 text-gray-500">—</span>
-                    <span className="ml-2 text-gray-700">{client.catName}</span>
+                    <span className="mx-2 text-[#e0ddd8]">/</span>
+                    <span className="font-normal text-[#5a5550]">{client.catName}</span>
                   </p>
-                  <p className="mt-1 text-sm text-gray-500 truncate">
+                  <p className="mt-1.5 text-xs text-[#8a8580] break-all">
                     {client.address}
                   </p>
                   {client.note && (
-                    <p className="mt-1 text-sm text-gray-400">{client.note}</p>
+                    <p className="mt-1 text-xs text-[#b0aaa5]">{client.note}</p>
                   )}
                 </div>
-                <div className="flex shrink-0 gap-2">
+                <div className="flex shrink-0 gap-3">
                   <button
                     onClick={() => handleEdit(client)}
-                    className="rounded px-2.5 py-1 text-sm text-blue-600 transition-colors hover:bg-blue-50"
+                    className="text-xs text-[#8a8580] underline-offset-4 hover:underline"
                   >
                     編輯
                   </button>
                   <button
                     onClick={() => handleDelete(client.id)}
                     disabled={deletingId === client.id}
-                    className="rounded px-2.5 py-1 text-sm text-red-600 transition-colors hover:bg-red-50 disabled:opacity-50"
+                    className="text-xs text-red-400 underline-offset-4 hover:underline disabled:opacity-50"
                   >
-                    {deletingId === client.id ? "刪除中..." : "刪除"}
+                    {deletingId === client.id ? "..." : "刪除"}
                   </button>
                 </div>
               </div>

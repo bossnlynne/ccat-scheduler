@@ -3,6 +3,7 @@ import { google } from "googleapis";
 
 export interface UserSettings {
   sheetId?: string;
+  calendarId?: string;
 }
 
 function getServiceAccountAuth() {
@@ -19,7 +20,7 @@ function getAdminSheetId(): string {
   return id;
 }
 
-// settings tab format: username | sheetId
+// settings tab: username | sheetId | calendarId
 // Row 1 is header
 
 export async function getUserSettings(username: string): Promise<UserSettings> {
@@ -29,7 +30,7 @@ export async function getUserSettings(username: string): Promise<UserSettings> {
   try {
     const res = await sheets.spreadsheets.values.get({
       spreadsheetId: getAdminSheetId(),
-      range: "settings!A:B",
+      range: "settings!A:C",
     });
 
     const rows = res.data.values;
@@ -40,14 +41,16 @@ export async function getUserSettings(username: string): Promise<UserSettings> {
     );
 
     if (!row) return {};
-    return { sheetId: row[1]?.toString().trim() || undefined };
+    return {
+      sheetId: row[1]?.toString().trim() || undefined,
+      calendarId: row[2]?.toString().trim() || undefined,
+    };
   } catch {
-    // settings tab might not exist yet
     return {};
   }
 }
 
-export async function setUserSettings(username: string, settings: UserSettings): Promise<void> {
+export async function setUserSettings(username: string, settings: Partial<UserSettings>): Promise<void> {
   const auth = getServiceAccountAuth();
   const sheets = google.sheets({ version: "v4", auth });
   const sheetId = getAdminSheetId();
@@ -59,26 +62,23 @@ export async function setUserSettings(username: string, settings: UserSettings):
       range: "settings!A1",
     });
   } catch {
-    // Create the tab
     await sheets.spreadsheets.batchUpdate({
       spreadsheetId: sheetId,
       requestBody: {
         requests: [{ addSheet: { properties: { title: "settings" } } }],
       },
     });
-    // Add header
     await sheets.spreadsheets.values.update({
       spreadsheetId: sheetId,
-      range: "settings!A1:B1",
+      range: "settings!A1:C1",
       valueInputOption: "RAW",
-      requestBody: { values: [["username", "sheetId"]] },
+      requestBody: { values: [["username", "sheetId", "calendarId"]] },
     });
   }
 
-  // Check if user row exists
   const res = await sheets.spreadsheets.values.get({
     spreadsheetId: sheetId,
-    range: "settings!A:B",
+    range: "settings!A:C",
   });
 
   const rows = res.data.values || [];
@@ -86,21 +86,26 @@ export async function setUserSettings(username: string, settings: UserSettings):
     (r, i) => i > 0 && (r[0] || "").toString().trim().toLowerCase() === username.toLowerCase()
   );
 
+  const existing = rowIndex >= 0 ? rows[rowIndex] : [];
+  const newRow = [
+    username.toLowerCase(),
+    settings.sheetId ?? existing[1] ?? "",
+    settings.calendarId ?? existing[2] ?? "",
+  ];
+
   if (rowIndex >= 0) {
-    // Update existing row
     await sheets.spreadsheets.values.update({
       spreadsheetId: sheetId,
-      range: `settings!A${rowIndex + 1}:B${rowIndex + 1}`,
+      range: `settings!A${rowIndex + 1}:C${rowIndex + 1}`,
       valueInputOption: "RAW",
-      requestBody: { values: [[username.toLowerCase(), settings.sheetId || ""]] },
+      requestBody: { values: [newRow] },
     });
   } else {
-    // Append new row
     await sheets.spreadsheets.values.append({
       spreadsheetId: sheetId,
-      range: "settings!A:B",
+      range: "settings!A:C",
       valueInputOption: "RAW",
-      requestBody: { values: [[username.toLowerCase(), settings.sheetId || ""]] },
+      requestBody: { values: [newRow] },
     });
   }
 }
