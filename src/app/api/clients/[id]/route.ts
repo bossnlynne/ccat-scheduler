@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getUserSettings } from "@/lib/user-settings";
-import { updateClient, deleteClient } from "@/lib/google-sheets";
+import { updateClientFields, deleteClient } from "@/lib/google-sheets";
 import { getSessionUsername } from "@/lib/auth-server";
+import { toPublicClient } from "@/lib/client-privacy";
 
 export async function PUT(
   request: NextRequest,
@@ -22,27 +23,26 @@ export async function PUT(
 
   const { id } = await params;
   const body = await request.json();
-  const { ownerName, catName, address, note } = body;
+  const { ownerName, catName, note } = body;
 
-  if (!ownerName || !catName || !address) {
+  if (!ownerName || !catName) {
     return NextResponse.json(
-      { error: "飼主姓名、貓咪名字、照顧地址為必填" },
+      { error: "飼主姓名、貓咪名字為必填" },
       { status: 400 }
     );
   }
 
   try {
-    const client = await updateClient(settings.sheetId, {
-      id,
+    const fields = {
       ownerName,
       catName,
-      address,
       note: note || "",
-    });
+    };
+    const client = await updateClientFields(settings.sheetId, id, fields);
     if (!client) {
       return NextResponse.json({ error: "找不到該客戶" }, { status: 404 });
     }
-    return NextResponse.json({ client });
+    return NextResponse.json({ client: toPublicClient(client) });
   } catch (err) {
     const message = err instanceof Error ? err.message : "未知錯誤";
     return NextResponse.json(

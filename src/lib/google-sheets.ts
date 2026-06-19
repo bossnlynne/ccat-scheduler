@@ -125,6 +125,56 @@ export async function updateClient(
   return client;
 }
 
+export async function updateClientFields(
+  sheetId: string,
+  clientId: string,
+  fields: Omit<Partial<Client>, "id">
+): Promise<Client | null> {
+  const auth = getServiceAccountAuth();
+  const sheets = google.sheets({ version: "v4", auth });
+
+  const res = await sheets.spreadsheets.values.get({
+    spreadsheetId: sheetId,
+    range: "工作表1!A:E",
+  });
+
+  const rows = res.data.values;
+  if (!rows) return null;
+
+  const rowIndex = rows.findIndex((row) => row[0] === clientId);
+  if (rowIndex === -1) return null;
+
+  const existing: Client = {
+    id: rows[rowIndex][0] || "",
+    ownerName: rows[rowIndex][1] || "",
+    catName: rows[rowIndex][2] || "",
+    address: rows[rowIndex][3] || "",
+    note: rows[rowIndex][4] || "",
+  };
+
+  const nextClient: Client = {
+    ...existing,
+    ...fields,
+  };
+
+  const row = [
+    nextClient.id,
+    nextClient.ownerName,
+    nextClient.catName,
+    nextClient.address,
+    nextClient.note,
+  ];
+
+  await sheets.spreadsheets.values.update({
+    spreadsheetId: sheetId,
+    range: `工作表1!A${rowIndex + 1}:E${rowIndex + 1}`,
+    valueInputOption: "RAW",
+    requestBody: { values: [row] },
+  });
+
+  return nextClient;
+}
+
 export async function deleteClient(
   sheetId: string,
   clientId: string

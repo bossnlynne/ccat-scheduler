@@ -7,7 +7,6 @@ interface Client {
   id: string;
   ownerName: string;
   catName: string;
-  address: string;
   note: string;
 }
 
@@ -141,9 +140,6 @@ export default function ClientList() {
                     {client.ownerName}
                     <span className="mx-2 text-[#e0ddd8]">/</span>
                     <span className="font-normal text-[#5a5550]">{client.catName}</span>
-                  </p>
-                  <p className="mt-1.5 text-xs text-[#8a8580] break-all">
-                    {client.address}
                   </p>
                   {client.note && (
                     <p className="mt-1 text-xs text-[#b0aaa5]">{client.note}</p>

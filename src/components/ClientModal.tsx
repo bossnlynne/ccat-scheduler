@@ -6,7 +6,6 @@ interface Client {
   id: string;
   ownerName: string;
   catName: string;
-  address: string;
   note: string;
 }
 
@@ -19,7 +18,6 @@ export default function ClientModal({ client, onClose }: Props) {
   const isEditing = !!client;
   const [ownerName, setOwnerName] = useState(client?.ownerName || "");
   const [catName, setCatName] = useState(client?.catName || "");
-  const [address, setAddress] = useState(client?.address || "");
   const [note, setNote] = useState(client?.note || "");
   const [error, setError] = useState("");
   const [saving, setSaving] = useState(false);
@@ -28,8 +26,8 @@ export default function ClientModal({ client, onClose }: Props) {
     e.preventDefault();
     setError("");
 
-    if (!ownerName.trim() || !catName.trim() || !address.trim()) {
-      setError("飼主姓名、貓咪名字、照顧地址為必填");
+    if (!ownerName.trim() || !catName.trim()) {
+      setError("飼主姓名、貓咪名字為必填");
       return;
     }
 
@@ -38,7 +36,6 @@ export default function ClientModal({ client, onClose }: Props) {
       const body = {
         ownerName: ownerName.trim(),
         catName: catName.trim(),
-        address: address.trim(),
         note: note.trim(),
       };
 
@@ -100,19 +97,6 @@ export default function ClientModal({ client, onClose }: Props) {
               onChange={(e) => setCatName(e.target.value)}
               className={inputClass}
               placeholder="多隻以 / 分隔"
-            />
-          </div>
-
-          <div>
-            <label className="block text-xs font-medium text-[#8a8580]">
-              照顧地址
-            </label>
-            <input
-              type="text"
-              value={address}
-              onChange={(e) => setAddress(e.target.value)}
-              className={inputClass}
-              placeholder="完整地址"
             />
           </div>
 

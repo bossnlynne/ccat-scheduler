@@ -6,7 +6,6 @@ interface Client {
   id: string;
   ownerName: string;
   catName: string;
-  address: string;
   note: string;
 }
 
@@ -217,7 +216,6 @@ export default function ScheduleForm({ displayName }: Props) {
               {" "}
               {time} ~ {formatEndTime(time)}
             </p>
-            <p className="text-xs text-[#b0aaa5]">{selectedClient.address}</p>
           </div>
 
           {eventCount > 1 && eventCount <= 31 && (

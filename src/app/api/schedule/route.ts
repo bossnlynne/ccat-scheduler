@@ -52,6 +52,12 @@ export async function POST(request: NextRequest) {
   if (!client) {
     return NextResponse.json({ error: "找不到該客戶" }, { status: 404 });
   }
+  if (!client.address.trim()) {
+    return NextResponse.json(
+      { error: "Google Sheet 中缺少該客戶的照顧地址" },
+      { status: 400 }
+    );
+  }
 
   const dates = getDateRange(startDate, endDate);
   if (dates.length === 0 || dates.length > 60) {

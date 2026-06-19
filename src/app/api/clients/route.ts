@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { getUserSettings } from "@/lib/user-settings";
 import { getClients, addClient } from "@/lib/google-sheets";
 import { getSessionUsername } from "@/lib/auth-server";
+import { toPublicClient } from "@/lib/client-privacy";
 
 export async function GET() {
   const username = await getSessionUsername();
@@ -19,7 +20,7 @@ export async function GET() {
 
   try {
     const clients = await getClients(settings.sheetId);
-    return NextResponse.json({ clients });
+    return NextResponse.json({ clients: clients.map(toPublicClient) });
   } catch (err) {
     const message = err instanceof Error ? err.message : "未知錯誤";
     return NextResponse.json(
@@ -46,9 +47,9 @@ export async function POST(request: Request) {
   const body = await request.json();
   const { ownerName, catName, address, note } = body;
 
-  if (!ownerName || !catName || !address) {
+  if (!ownerName || !catName) {
     return NextResponse.json(
-      { error: "飼主姓名、貓咪名字、照顧地址為必填" },
+      { error: "飼主姓名、貓咪名字為必填" },
       { status: 400 }
     );
   }
@@ -57,10 +58,10 @@ export async function POST(request: Request) {
     const client = await addClient(settings.sheetId, {
       ownerName,
       catName,
-      address,
+      address: typeof address === "string" ? address : "",
       note: note || "",
     });
-    return NextResponse.json({ client }, { status: 201 });
+    return NextResponse.json({ client: toPublicClient(client) }, { status: 201 });
   } catch (err) {
     const message = err instanceof Error ? err.message : "未知錯誤";
     return NextResponse.json(
