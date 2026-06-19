@@ -1,0 +1,8 @@
+.claude/
+.env*
+*.pem
+client_secret_*.json
+cat-sitting-scheduler-*.json
+.env.vercel-check
+Ccat-customer-management.txt
+Xnip*.png
