@@ -55,6 +55,9 @@ function getDateRange(startDate: string, endDate: string): string[] {
   return dates;
 }
 
+/** both = Google + iCloud 同時建立；google = 只寫入 Google 行事曆 */
+type ScheduleTarget = "both" | "google";
+
 interface Props {
   displayName: string;
 }
@@ -66,11 +69,10 @@ export default function ScheduleForm({ displayName }: Props) {
   const [startDate, setStartDate] = useState(getTodayString());
   const [endDate, setEndDate] = useState(getTodayString());
   const [time, setTime] = useState("10:00");
-  const [submitting, setSubmitting] = useState(false);
+  const [submittingTarget, setSubmittingTarget] = useState<ScheduleTarget | null>(null);
   const [result, setResult] = useState<{
-    type: "success" | "error" | "partial";
+    type: "success" | "error";
     message: string;
-    warnings?: string[];
   } | null>(null);
 
   const fetchClients = useCallback(async () => {
@@ -95,17 +97,22 @@ export default function ScheduleForm({ displayName }: Props) {
 
   const selectedClient = clients.find((c) => c.id === selectedClientId);
 
-  const eventTitle = selectedClient
+  // 只發 Google 時標題不加「照護」前綴與使用者名稱
+  const bothTitle = selectedClient
     ? `［照護］${selectedClient.ownerName}-${selectedClient.catName}（${displayName}）`
+    : "";
+  const googleOnlyTitle = selectedClient
+    ? `${selectedClient.ownerName}-${selectedClient.catName}`
     : "";
 
   const dates = useMemo(() => getDateRange(startDate, endDate), [startDate, endDate]);
   const eventCount = dates.length;
+  const canSubmit = !!selectedClient && !!startDate && !!endDate && !!time;
 
-  async function handleSubmit() {
+  async function handleSubmit(target: ScheduleTarget) {
     if (!selectedClient || !startDate || !endDate || !time) return;
 
-    setSubmitting(true);
+    setSubmittingTarget(target);
     setResult(null);
 
     try {
@@ -117,6 +124,7 @@ export default function ScheduleForm({ displayName }: Props) {
           startDate,
           endDate,
           startTime: time,
+          target,
         }),
       });
 
@@ -126,17 +134,18 @@ export default function ScheduleForm({ displayName }: Props) {
         return;
       }
 
-      const hasWarnings = data.warnings && data.warnings.length > 0;
       setResult({
-        type: hasWarnings ? "partial" : "success",
-        message: `已建立排程：Google ${data.google} 筆、iCloud ${data.icloud} 筆`,
-        warnings: data.warnings,
+        type: "success",
+        message:
+          target === "google"
+            ? `已建立排程：Google 行事曆 ${data.google} 筆`
+            : `已建立排程：Google ${data.google} 筆、iCloud ${data.icloud} 筆`,
       });
       setSelectedClientId("");
     } catch {
       setResult({ type: "error", message: "網路錯誤，請稍後再試" });
     } finally {
-      setSubmitting(false);
+      setSubmittingTarget(null);
     }
   }
 
@@ -209,7 +218,10 @@ export default function ScheduleForm({ displayName }: Props) {
             <span className="ml-2 text-[#1a1a1a]">{eventCount} 筆</span>
           </p>
           <div className="mt-3 space-y-1.5 text-sm text-[#1a1a1a]">
-            <p>{eventTitle}</p>
+            <p>{bothTitle}</p>
+            <p className="text-xs text-[#b0aaa5]">
+              只發 Google 時的標題：{googleOnlyTitle}
+            </p>
             <p className="text-[#8a8580]">
               {formatDateDisplay(startDate)}
               {startDate !== endDate && <> ~ {formatDateDisplay(endDate)}</>}
@@ -241,26 +253,34 @@ export default function ScheduleForm({ displayName }: Props) {
           className={`border px-4 py-3 text-sm ${
             result.type === "success"
               ? "border-green-200 bg-green-50/60 text-green-700"
-              : result.type === "partial"
-              ? "border-amber-200 bg-amber-50/60 text-amber-700"
               : "border-red-200 bg-red-50/60 text-red-600"
           }`}
         >
           <p>{result.message}</p>
-          {result.warnings?.map((w, i) => (
-            <p key={i} className="mt-1 text-xs opacity-75">{w}</p>
-          ))}
         </div>
       )}
 
       {/* 送出按鈕 */}
-      <button
-        onClick={handleSubmit}
-        disabled={!selectedClient || !startDate || !endDate || !time || submitting}
-        className="w-full border border-[#1a1a1a] bg-[#1a1a1a] py-3 text-sm font-medium text-white transition-colors hover:bg-[#333] disabled:cursor-not-allowed disabled:opacity-30"
-      >
-        {submitting ? "建立中..." : `送出排程（${eventCount} 筆）`}
-      </button>
+      <div className="space-y-3">
+        <button
+          onClick={() => handleSubmit("both")}
+          disabled={!canSubmit || submittingTarget !== null}
+          className="w-full border border-[#1a1a1a] bg-[#1a1a1a] py-3 text-sm font-medium text-white transition-colors hover:bg-[#333] disabled:cursor-not-allowed disabled:opacity-30"
+        >
+          {submittingTarget === "both"
+            ? "建立中..."
+            : `送出排程（${eventCount} 筆）`}
+        </button>
+        <button
+          onClick={() => handleSubmit("google")}
+          disabled={!canSubmit || submittingTarget !== null}
+          className="w-full border border-[#e0ddd8] bg-white py-3 text-sm text-[#1a1a1a] transition-colors hover:bg-[#f5f3ef] disabled:cursor-not-allowed disabled:opacity-30"
+        >
+          {submittingTarget === "google"
+            ? "建立中..."
+            : `只加到 Google 行事曆（${eventCount} 筆）`}
+        </button>
+      </div>
     </div>
   );
 }
