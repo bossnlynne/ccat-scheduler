@@ -47,9 +47,9 @@ export async function POST(request: Request) {
   const body = await request.json();
   const { ownerName, catName, address, note } = body;
 
-  if (!ownerName || !catName) {
+  if (!ownerName || !catName || !address) {
     return NextResponse.json(
-      { error: "飼主姓名、貓咪名字為必填" },
+      { error: "飼主姓名、貓咪名字、照顧地址為必填" },
       { status: 400 }
     );
   }
@@ -58,7 +58,7 @@ export async function POST(request: Request) {
     const client = await addClient(settings.sheetId, {
       ownerName,
       catName,
-      address: typeof address === "string" ? address : "",
+      address,
       note: note || "",
     });
     return NextResponse.json({ client: toPublicClient(client) }, { status: 201 });

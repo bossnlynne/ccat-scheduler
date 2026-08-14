@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, FormEvent } from "react";
+import { useState, useEffect, FormEvent } from "react";
 
 interface Client {
   id: string;
@@ -18,16 +18,46 @@ export default function ClientModal({ client, onClose }: Props) {
   const isEditing = !!client;
   const [ownerName, setOwnerName] = useState(client?.ownerName || "");
   const [catName, setCatName] = useState(client?.catName || "");
+  const [address, setAddress] = useState("");
   const [note, setNote] = useState(client?.note || "");
+  // 地址不在清單資料裡，編輯時單筆載入
+  const [loadingAddress, setLoadingAddress] = useState(isEditing);
   const [error, setError] = useState("");
   const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    if (!client) return;
+
+    let active = true;
+    async function loadAddress() {
+      try {
+        const res = await fetch(`/api/clients/${client!.id}`);
+        const data = await res.json();
+        if (!active) return;
+        if (res.ok && data.client) {
+          setAddress(data.client.address || "");
+        } else {
+          setError(data.error || "無法載入照顧地址");
+        }
+      } catch {
+        if (active) setError("無法載入照顧地址");
+      } finally {
+        if (active) setLoadingAddress(false);
+      }
+    }
+    loadAddress();
+
+    return () => {
+      active = false;
+    };
+  }, [client]);
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
     setError("");
 
-    if (!ownerName.trim() || !catName.trim()) {
-      setError("飼主姓名、貓咪名字為必填");
+    if (!ownerName.trim() || !catName.trim() || !address.trim()) {
+      setError("飼主姓名、貓咪名字、照顧地址為必填");
       return;
     }
 
@@ -36,6 +66,7 @@ export default function ClientModal({ client, onClose }: Props) {
       const body = {
         ownerName: ownerName.trim(),
         catName: catName.trim(),
+        address: address.trim(),
         note: note.trim(),
       };
 
@@ -102,6 +133,20 @@ export default function ClientModal({ client, onClose }: Props) {
 
           <div>
             <label className="block text-xs font-medium text-[#8a8580]">
+              照顧地址
+            </label>
+            <input
+              type="text"
+              value={address}
+              onChange={(e) => setAddress(e.target.value)}
+              disabled={loadingAddress}
+              className={inputClass}
+              placeholder={loadingAddress ? "載入中..." : "例如：台北市大安區復興南路一段100號"}
+            />
+          </div>
+
+          <div>
+            <label className="block text-xs font-medium text-[#8a8580]">
               備註
             </label>
             <textarea
@@ -125,7 +170,7 @@ export default function ClientModal({ client, onClose }: Props) {
             </button>
             <button
               type="submit"
-              disabled={saving}
+              disabled={saving || loadingAddress}
               className="border border-[#1a1a1a] bg-[#1a1a1a] px-5 py-2 text-xs font-medium text-white transition-colors hover:bg-[#333] disabled:opacity-50"
             >
               {saving ? "儲存中..." : "儲存"}
