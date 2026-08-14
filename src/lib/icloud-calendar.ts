@@ -1,6 +1,9 @@
 import "server-only";
 import { createDAVClient, DAVCalendar } from "tsdav";
 import { v4 as uuidv4 } from "uuid";
+import { oneHourWindow } from "./event-time";
+
+type DAVClientInstance = Awaited<ReturnType<typeof createDAVClient>>;
 
 function getICloudConfig() {
   const appleId = process.env.ICLOUD_APPLE_ID;
@@ -46,11 +49,6 @@ function toICSDateTime(date: string, time: string): string {
   return date.replace(/-/g, "") + "T" + time.replace(":", "") + "00";
 }
 
-function addOneHour(time: string): string {
-  const [h, m] = time.split(":").map(Number);
-  return `${String(h + 1).padStart(2, "0")}:${String(m).padStart(2, "0")}`;
-}
-
 export interface ICloudEventInput {
   title: string;
   location: string;
@@ -59,25 +57,16 @@ export interface ICloudEventInput {
   startTime: string; // HH:mm
 }
 
-async function getTargetCalendar(
-  client: Awaited<ReturnType<typeof createDAVClient>>,
-  calendarName: string
-): Promise<DAVCalendar> {
-  const calendars = await client.fetchCalendars();
-  const target = calendars.find(
-    (c) => c.displayName === calendarName
-  );
-  if (!target) {
-    throw new Error(
-      `找不到名為「${calendarName}」的 iCloud 行事曆`
-    );
-  }
-  return target;
+/** 已建立的 iCloud 事件，url 用於回滾刪除。 */
+export interface ICloudEventRef {
+  uid: string;
+  url: string;
 }
 
-export async function createICloudCalendarEvent(
-  event: ICloudEventInput
-): Promise<string> {
+async function connect(): Promise<{
+  client: DAVClientInstance;
+  calendar: DAVCalendar;
+}> {
   const { appleId, appPassword, calendarName } = getICloudConfig();
 
   const client = await createDAVClient({
@@ -90,69 +79,93 @@ export async function createICloudCalendarEvent(
     defaultAccountType: "caldav",
   });
 
-  const calendar = await getTargetCalendar(client, calendarName);
+  const calendars = await client.fetchCalendars();
+  const calendar = calendars.find((c) => c.displayName === calendarName);
+  if (!calendar) {
+    throw new Error(`找不到名為「${calendarName}」的 iCloud 行事曆`);
+  }
+
+  return { client, calendar };
+}
+
+async function putEvent(
+  client: DAVClientInstance,
+  calendar: DAVCalendar,
+  event: ICloudEventInput
+): Promise<ICloudEventRef> {
   const uid = uuidv4();
-  const endTime = addOneHour(event.startTime);
+  const window = oneHourWindow(event.date, event.startTime);
 
   const icsData = buildICS({
     uid,
     title: event.title,
     location: event.location,
     description: event.description,
-    dtStart: toICSDateTime(event.date, event.startTime),
-    dtEnd: toICSDateTime(event.date, endTime),
+    dtStart: toICSDateTime(window.startDate, window.startTime),
+    dtEnd: toICSDateTime(window.endDate, window.endTime),
   });
 
-  await client.createCalendarObject({
+  const filename = `${uid}.ics`;
+  const res = await client.createCalendarObject({
     calendar,
-    filename: `${uid}.ics`,
+    filename,
     iCalString: icsData,
   });
 
-  return uid;
-}
-
-export async function createICloudCalendarEvents(
-  events: ICloudEventInput[]
-): Promise<string[]> {
-  if (events.length === 0) return [];
-
-  const { appleId, appPassword, calendarName } = getICloudConfig();
-
-  const client = await createDAVClient({
-    serverUrl: "https://caldav.icloud.com",
-    credentials: {
-      username: appleId,
-      password: appPassword,
-    },
-    authMethod: "Basic",
-    defaultAccountType: "caldav",
-  });
-
-  const calendar = await getTargetCalendar(client, calendarName);
-  const ids: string[] = [];
-
-  for (const event of events) {
-    const uid = uuidv4();
-    const endTime = addOneHour(event.startTime);
-
-    const icsData = buildICS({
-      uid,
-      title: event.title,
-      location: event.location,
-      description: event.description,
-      dtStart: toICSDateTime(event.date, event.startTime),
-      dtEnd: toICSDateTime(event.date, endTime),
-    });
-
-    await client.createCalendarObject({
-      calendar,
-      filename: `${uid}.ics`,
-      iCalString: icsData,
-    });
-
-    ids.push(uid);
+  // tsdav 不會對 4xx/5xx 拋錯，必須自己檢查，否則失敗會被當成成功
+  if (!res.ok) {
+    throw new Error(
+      `iCloud 拒絕寫入事件（HTTP ${res.status} ${res.statusText}）`
+    );
   }
 
-  return ids;
+  const base = calendar.url.endsWith("/") ? calendar.url : `${calendar.url}/`;
+  return { uid, url: new URL(filename, base).toString() };
+}
+
+/** 盡力刪除，個別失敗只記錄不中斷 — 用於回滾。 */
+async function deleteEvents(
+  client: DAVClientInstance,
+  refs: ICloudEventRef[]
+): Promise<void> {
+  for (const ref of refs) {
+    try {
+      await client.deleteCalendarObject({ calendarObject: { url: ref.url } });
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "未知錯誤";
+      console.error(`回滾 iCloud 事件 ${ref.uid} 失敗：${msg}`);
+    }
+  }
+}
+
+export async function createICloudCalendarEvent(
+  event: ICloudEventInput
+): Promise<string> {
+  const { client, calendar } = await connect();
+  const ref = await putEvent(client, calendar, event);
+  return ref.uid;
+}
+
+/**
+ * 全有或全無：任一筆失敗就把已建立的事件刪掉再往外拋，
+ * 避免使用者重試後行事曆出現重複事件。
+ */
+export async function createICloudCalendarEvents(
+  events: ICloudEventInput[]
+): Promise<ICloudEventRef[]> {
+  if (events.length === 0) return [];
+
+  const { client, calendar } = await connect();
+  const refs: ICloudEventRef[] = [];
+
+  for (const event of events) {
+    try {
+      refs.push(await putEvent(client, calendar, event));
+    } catch (err) {
+      await deleteEvents(client, refs);
+      throw err;
+    }
+  }
+
+  return refs;
 }
