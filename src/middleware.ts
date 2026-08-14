@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { COOKIE_NAME } from "@/lib/auth";
+import { readSessionValue } from "@/lib/session";
 
-export function middleware(request: NextRequest) {
+export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
   // Skip auth check for public paths
@@ -14,10 +15,19 @@ export function middleware(request: NextRequest) {
     return NextResponse.next();
   }
 
-  const session = request.cookies.get(COOKIE_NAME)?.value;
+  const username = await readSessionValue(
+    request.cookies.get(COOKIE_NAME)?.value
+  );
 
-  if (!session) {
-    return NextResponse.redirect(new URL("/login", request.url));
+  if (!username) {
+    // API 路徑回 401 JSON，讓前端能讀到錯誤訊息；轉址會讓 res.json() 解析 HTML 失敗
+    const response = pathname.startsWith("/api/")
+      ? NextResponse.json({ error: "未登入" }, { status: 401 })
+      : NextResponse.redirect(new URL("/login", request.url));
+
+    // 簽章不符或已過期 — 順手清掉無效 cookie
+    response.cookies.delete(COOKIE_NAME);
+    return response;
   }
 
   return NextResponse.next();

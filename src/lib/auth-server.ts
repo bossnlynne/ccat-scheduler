@@ -2,6 +2,7 @@ import "server-only";
 import { cookies } from "next/headers";
 import { google } from "googleapis";
 import { COOKIE_NAME } from "./auth";
+import { readSessionValue } from "./session";
 
 function getServiceAccountAuth() {
   const credentials = JSON.parse(process.env.GOOGLE_SERVICE_ACCOUNT_KEY || "{}");
@@ -46,5 +47,5 @@ export async function isAllowedUser(username: string, pin: string): Promise<bool
 
 export async function getSessionUsername(): Promise<string | null> {
   const cookieStore = await cookies();
-  return cookieStore.get(COOKIE_NAME)?.value ?? null;
+  return readSessionValue(cookieStore.get(COOKIE_NAME)?.value);
 }

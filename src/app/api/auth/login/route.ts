@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { COOKIE_NAME, isValidUsername, isValidPin } from "@/lib/auth";
 import { isAllowedUser } from "@/lib/auth-server";
+import { createSessionValue } from "@/lib/session";
 
 export async function POST(request: NextRequest) {
   const body = await request.json();
@@ -37,9 +38,18 @@ export async function POST(request: NextRequest) {
     );
   }
 
+  let sessionValue: string;
+  try {
+    sessionValue = await createSessionValue(username.toLowerCase());
+  } catch (err) {
+    const message = err instanceof Error ? err.message : "未知錯誤";
+    console.error("Session signing failed:", message);
+    return NextResponse.json({ error: message }, { status: 500 });
+  }
+
   const response = NextResponse.json({ success: true });
 
-  response.cookies.set(COOKIE_NAME, username.toLowerCase(), {
+  response.cookies.set(COOKIE_NAME, sessionValue, {
     httpOnly: true,
     secure: process.env.NODE_ENV === "production",
     sameSite: "lax",
