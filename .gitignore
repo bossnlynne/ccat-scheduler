@@ -52,3 +52,6 @@ Xnip*.png
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# Claude Code 本機設定（含個人權限與曾出現的指令參數）
+.claude/settings.local.json
