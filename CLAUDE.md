@@ -18,6 +18,7 @@
 - 兩種模式：`both`（Google + iCloud，標題 `［照護］飼主-貓咪（使用者）`）與 `google`（只寫 Google，標題 `飼主-貓咪`）
 - **全有或全無**：任一筆失敗就回滾已建立的事件（含跨服務回滾），避免使用者重試造成重複事件
 - tsdav 的 `createCalendarObject` 不會對 4xx/5xx 拋錯，必須自行檢查 `res.ok`
+- Google 事件逐日標題：單日行程加 `單日（…）`、多日行程最後一天加 `最後一天（…）`，iCloud 不加；統一走 `src/lib/event-title.ts` 的 `googleDayTitle`
 - 事件固定 1 小時，跨午夜（23:xx 起始）時結束日期要進位，統一走 `src/lib/event-time.ts` 的 `oneHourWindow`
 
 # 開發注意事項

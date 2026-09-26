@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback, useMemo } from "react";
+import { googleDayTitle } from "@/lib/event-title";
 
 interface Client {
   id: string;
@@ -107,6 +108,7 @@ export default function ScheduleForm({ displayName }: Props) {
 
   const dates = useMemo(() => getDateRange(startDate, endDate), [startDate, endDate]);
   const eventCount = dates.length;
+  const lastIndex = eventCount - 1;
   const canSubmit = !!selectedClient && !!startDate && !!endDate && !!time;
 
   async function handleSubmit(target: ScheduleTarget) {
@@ -219,8 +221,17 @@ export default function ScheduleForm({ displayName }: Props) {
           </p>
           <div className="mt-3 space-y-1.5 text-sm text-[#1a1a1a]">
             <p>{bothTitle}</p>
-            <p className="text-xs text-[#b0aaa5]">
-              只發 Google 時的標題：{googleOnlyTitle}
+            {eventCount > 0 && (
+              <p className="text-xs text-[#b0aaa5] break-words">
+                Google 行事曆{eventCount > 1 ? "最後一天" : ""}：
+                {googleDayTitle(bothTitle, lastIndex, eventCount)}
+              </p>
+            )}
+            <p className="text-xs text-[#b0aaa5] break-words">
+              只發 Google 時的標題：
+              {eventCount === 1
+                ? googleDayTitle(googleOnlyTitle, 0, 1)
+                : `${googleOnlyTitle}，最後一天：${googleDayTitle(googleOnlyTitle, lastIndex, eventCount)}`}
             </p>
             <p className="text-[#8a8580]">
               {formatDateDisplay(startDate)}

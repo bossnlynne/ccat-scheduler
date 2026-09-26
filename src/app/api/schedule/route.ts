@@ -8,6 +8,7 @@ import {
 } from "@/lib/google-calendar";
 import { createICloudCalendarEvents, ICloudEventInput } from "@/lib/icloud-calendar";
 import { getSessionUsername } from "@/lib/auth-server";
+import { googleDayTitle } from "@/lib/event-title";
 
 /** both = Google + iCloud 同時建立；google = 只寫入 Google 行事曆 */
 type ScheduleTarget = "both" | "google";
@@ -110,13 +111,16 @@ export async function POST(request: NextRequest) {
     startTime,
   }));
 
+  // Google 事件依日期位置加上「單日／最後一天」；iCloud 維持原標題
+  const googleInputs: CalendarEventInput[] = eventInputs.map((e, i) => ({
+    ...e,
+    title: googleDayTitle(title, i, eventInputs.length),
+  }));
+
   // Google 先寫入，iCloud 若失敗則整批回滾，不留下半套排程
   let googleIds: string[];
   try {
-    googleIds = await createGoogleCalendarEvents(
-      eventInputs as CalendarEventInput[],
-      calendarId
-    );
+    googleIds = await createGoogleCalendarEvents(googleInputs, calendarId);
   } catch (err) {
     const msg = err instanceof Error ? err.message : "未知錯誤";
     return NextResponse.json(
